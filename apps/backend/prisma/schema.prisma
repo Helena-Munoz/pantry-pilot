@@ -1,0 +1,261 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  admin
+  member
+  contributor
+  viewer
+}
+
+enum ItemStatus {
+  pending
+  bought
+}
+
+enum NotificationType {
+  expiry_warning
+}
+
+// ============================================
+// USER & HOUSEHOLD
+// ============================================
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  username          String   @unique
+  passwordHash      String
+  preferredLanguage String   @default("en")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  householdMembers        HouseholdMember[]
+  invitationsSent         Invitation[]
+  shoppingListsCreated    ShoppingList[]
+  itemsAdded              ShoppingListItem[] @relation("AddedBy")
+  itemsChecked            ShoppingListItem[] @relation("CheckedBy")
+  categoryOrders          ShoppingListCategoryOrder[]
+  pantryItemsAdded        PantryItem[]
+  notifications           Notification[]
+  householdsCreated       Household[]
+  categoriesCreated       Category[]
+  tagsCreated             Tag[]
+}
+
+model Household {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  theme       String   @default("minimal")
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdById String
+
+  members       HouseholdMember[]
+  invitations   Invitation[]
+  shoppingLists ShoppingList[]
+  pantryItems   PantryItem[]
+  categories    Category[]
+  tags          Tag[]
+  notifications Notification[]
+}
+
+model HouseholdMember {
+  id          String   @id @default(uuid())
+  role        Role     @default(member)
+  joinedAt    DateTime @default(now())
+
+  household   Household @relation(fields: [householdId], references: [id])
+  householdId String
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+
+  @@unique([householdId, userId])
+}
+
+model Invitation {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  expiresAt DateTime?
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  household   Household @relation(fields: [householdId], references: [id])
+  householdId String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdById String
+}
+
+// ============================================
+// SHOPPING LIST
+// ============================================
+
+model ShoppingList {
+  id         String    @id @default(uuid())
+  name       String
+  isDefault  Boolean   @default(false)
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  household   Household @relation(fields: [householdId], references: [id])
+  householdId String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdById String
+
+  items          ShoppingListItem[]
+  categoryOrders ShoppingListCategoryOrder[]
+}
+
+model ShoppingListItem {
+  id        String     @id @default(uuid())
+  name      String
+  quantity  Decimal?
+  unit      String?
+  notes     String?
+  iconKey   String?
+  status    ItemStatus @default(pending)
+  checkedAt DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  shoppingList   ShoppingList @relation(fields: [shoppingListId], references: [id])
+  shoppingListId String
+  category       Category?    @relation(fields: [categoryId], references: [id])
+  categoryId     String?
+  addedBy        User         @relation("AddedBy", fields: [addedById], references: [id])
+  addedById      String
+  checkedBy      User?        @relation("CheckedBy", fields: [checkedById], references: [id])
+  checkedById    String?
+  pantryItem     PantryItem?  @relation(fields: [pantryItemId], references: [id])
+  pantryItemId   String?
+
+  tags ShoppingListItemTag[]
+}
+
+model ShoppingListItemTag {
+  shoppingListItem   ShoppingListItem @relation(fields: [shoppingListItemId], references: [id])
+  shoppingListItemId String
+  tag                Tag              @relation(fields: [tagId], references: [id])
+  tagId              String
+
+  @@id([shoppingListItemId, tagId])
+}
+
+model ShoppingListCategoryOrder {
+  id       String @id @default(uuid())
+  position Int
+
+  shoppingList   ShoppingList @relation(fields: [shoppingListId], references: [id])
+  shoppingListId String
+  category       Category     @relation(fields: [categoryId], references: [id])
+  categoryId     String
+  user           User         @relation(fields: [userId], references: [id])
+  userId         String
+
+  @@unique([shoppingListId, categoryId, userId])
+}
+
+// ============================================
+// PANTRY
+// ============================================
+
+model PantryItem {
+  id                String    @id @default(uuid())
+  name              String
+  quantity          Decimal?
+  unit              String?
+  notes             String?
+  iconKey           String?
+  expiryDate        DateTime?
+  notifyBeforeDays  Int?
+  boughtAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  household   Household @relation(fields: [householdId], references: [id])
+  householdId String
+  category    Category? @relation(fields: [categoryId], references: [id])
+  categoryId  String?
+  addedBy     User      @relation(fields: [addedById], references: [id])
+  addedById   String
+
+  tags             PantryItemTag[]
+  shoppingListItems ShoppingListItem[]
+}
+
+model PantryItemTag {
+  pantryItem   PantryItem @relation(fields: [pantryItemId], references: [id])
+  pantryItemId String
+  tag          Tag        @relation(fields: [tagId], references: [id])
+  tagId        String
+
+  @@id([pantryItemId, tagId])
+}
+
+// ============================================
+// CATEGORY & TAG
+// ============================================
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  iconKey   String?
+  color     String?
+  createdAt DateTime @default(now())
+
+  household   Household? @relation(fields: [householdId], references: [id])
+  householdId String?
+  createdBy   User?      @relation(fields: [createdById], references: [id])
+  createdById String?
+
+  shoppingListItems         ShoppingListItem[]
+  pantryItems               PantryItem[]
+  shoppingListCategoryOrders ShoppingListCategoryOrder[]
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+
+  household   Household @relation(fields: [householdId], references: [id])
+  householdId String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdById String
+
+  shoppingListItemTags ShoppingListItemTag[]
+  pantryItemTags       PantryItemTag[]
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id            String           @id @default(uuid())
+  type          NotificationType
+  referenceId   String
+  referenceType String
+  readAt        DateTime?
+  createdAt     DateTime         @default(now())
+
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+  household   Household @relation(fields: [householdId], references: [id])
+  householdId String
+}
