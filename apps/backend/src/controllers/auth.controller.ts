@@ -7,7 +7,6 @@ export async function register(req: Request, res: Response) {
   try {
     const { email, username, password } = req.body;
 
-    // Basic field validation
     if (!email || !username || !password) {
       res.status(400).json({ error: 'Email, username and password are required' });
       return;
@@ -31,7 +30,6 @@ export async function login(req: Request, res: Response) {
   try {
     const { email, password } = req.body;
 
-    // Basic field validation
     if (!email || !password) {
       res.status(400).json({ error: 'Email and password are required' });
       return;

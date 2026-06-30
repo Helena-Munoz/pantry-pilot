@@ -13,7 +13,6 @@ export async function register(
   username: string,
   password: string
 ) {
-  // Check if email or username already exists
   const existing = await prisma.user.findFirst({
     where: {
       OR: [{ email }, { username }],
@@ -28,10 +27,8 @@ export async function register(
     );
   }
 
-  // Hash the password
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-  // Create the user
   const user = await prisma.user.create({
     data: {
       email,
@@ -47,7 +44,6 @@ export async function register(
     },
   });
 
-  // Generate JWT
   const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
   });
@@ -58,7 +54,6 @@ export async function register(
 // ── Login ─────────────────────────────────────────────────
 
 export async function login(email: string, password: string) {
-  // Find user by email
   const user = await prisma.user.findUnique({
     where: { email },
   });
@@ -67,19 +62,16 @@ export async function login(email: string, password: string) {
     throw new Error('Invalid credentials');
   }
 
-  // Compare password
   const passwordMatch = await bcrypt.compare(password, user.passwordHash);
 
   if (!passwordMatch) {
     throw new Error('Invalid credentials');
   }
 
-  // Generate JWT
   const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
   });
 
-  // Return user without passwordHash
   const { passwordHash: _, ...userWithoutPassword } = user;
 
   return { user: userWithoutPassword, token };
